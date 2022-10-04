@@ -46,8 +46,7 @@ HOMEWORK_CONDITION = {
 
 
 def send_message(bot, message):
-    """Функция отправляет сообщение в Telegram чат.
-    """
+    """Функция отправляет сообщение в Telegram чат."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logger.info('Сообщение в чат {TELEGRAM_CHAT_ID}: {message}')
@@ -56,8 +55,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(current_timestamp):
-    """Функция делает запрос к единственному эндпоинту API-сервиса.
-    """
+    """Функция делает запрос к единственному эндпоинту API-сервиса."""
     timestamp = current_timestamp or int(time())
     params = {'from_date': timestamp}
     try:
@@ -81,8 +79,7 @@ def get_api_answer(current_timestamp):
 
 
 def check_response(response):
-    """Функция проверяет ответ API на корректность.
-    """
+    """Функция проверяет ответ API на корректность."""
     if type(response) is not dict:
         raise TypeError('Ответ API отличен от словаря')
     try:
@@ -99,8 +96,7 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Функция извлекает из информации.
-    """
+    """Функция извлекает из информации."""
     if 'homework_name' not in homework:
         raise KeyError('Отсутствует ключ "homework_name" в ответе API')
     if 'status' not in homework:
@@ -114,8 +110,7 @@ def parse_status(homework):
 
 
 def check_tokens():
-    """Функция проверяет доступность переменных окружения.
-    """
+    """Функция проверяет доступность переменных окружения."""
     if (
         PRACTICUM_TOKEN is None
         or TELEGRAM_TOKEN is None
@@ -126,8 +121,7 @@ def check_tokens():
 
 
 def main():
-    """Основная логика работы бота.
-    """
+    """Основная логика работы бота."""
     if not check_tokens():
         exit()
     bot = Bot(token=TELEGRAM_TOKEN)
