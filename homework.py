@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from http import HTTPStatus
 
 load_dotenv()
+
 logging.basicConfig(
     level=logging.DEBUG,
     filename='homework.log',
@@ -37,7 +38,7 @@ ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 
-HOMEWORK_STATUSES = {
+HOMEWORK_CONDITION = {
     'approved': 'Работа проверена: Алексею всё понравилось. Кавабанга!',
     'reviewing': 'Работа взята на проверку Алексеем.',
     'rejected': 'Работа проверена: у Алексея есть замечания.'
@@ -106,9 +107,9 @@ def parse_status(homework):
         raise Exception('Отсутствует ключ "status" в ответе API')
     homework_name = homework["homework_name"]
     homework_status = homework["status"]
-    if homework_status not in HOMEWORK_STATUSES:
+    if homework_status not in HOMEWORK_CONDITION:
         raise Exception(f'Неизвестный статус работы: {homework_status}')
-    verdict = HOMEWORK_STATUSES[homework_status]
+    verdict = HOMEWORK_CONDITION[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
