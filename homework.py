@@ -8,7 +8,7 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-import exceptions
+from exceptions import NonTokenError, RequestError, SendMessageError
 
 load_dotenv()
 
@@ -16,7 +16,7 @@ PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-RETRY_TIME = 6 * 10 * 10
+RETRY_TIME = 6 * 100
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
@@ -43,7 +43,7 @@ def send_message(bot, message):
         )
         logger.info(f'Отправлено сообщение: {message}')
     except telegram.TelegramError:
-        raise telegram.TelegramError('Ошибка в отправке сообщения!')
+        raise SendMessageError('Ошибка в отправке сообщения!')
 
 
 def get_api_answer(current_timestamp):
@@ -63,20 +63,15 @@ def get_api_answer(current_timestamp):
         response = requests.get(**requests_params)
         logger.info(f'[Запрос к API] статуc (HTTP): {response.status_code}')
         if response.status_code != HTTPStatus.OK:
-            logger.error(
-                f'[Запрос к API] Ошибка при получении ответа с сервера.'
-                f'Статус ответа сервера {response.status_code}'
-            )
-            raise exceptions.ErrorMessage(
+            raise SendMessageError(
                 f'[Запрос к API]'
                 f'Статус, отличный от HTTP 200:{response.status_code}'
             )
         return response.json()
     except JSONDecodeError:
-        logger.error('Запрос к API вернулся не в формате JSON')
         raise JSONDecodeError('Запрос к API вернулся не в формате JSON')
     except Exception as error:
-        raise Exception(
+        raise RequestError(
             f'[Запрос к API] Статус: {response.status_code},'
             f'Получена ошибка: {error}'
         )
@@ -89,12 +84,9 @@ def check_response(response):
     то функция должна вернуть список домашних работ
     (он может быть и пустым), доступный в ответе API по ключу 'homeworks'.
     """
-    try:
-        homeworks = response['homeworks']
-    except KeyError as error:
-        raise KeyError(f'[Корректность] ошибка ключа: {error}')
-    if not homeworks:
-        logger.debug('[Корректность] Список домашних работ пуст')
+    homeworks = response['homeworks']
+    if homeworks not in response:
+        raise KeyError('[Корректность] ошибка ключа')
     if not isinstance(homeworks, list):
         raise TypeError('[Корректность] Ошибка типа.')
     return homeworks
@@ -108,25 +100,22 @@ def parse_status(homework):
     возвращает подготовленную для отправки в Telegram строку,
     содержащую один из вердиктов словаря HOMEWORK_STATUSES.
     """
-    try:
-        if len(homework) == 0:
-            message = f'[Статус] Проект не на проверке: {homework}'
-            logger.info(message)
-            return message
-        else:
-            homework_name = homework['homework_name']
-            homework_status = homework['status']
-            if homework_status in HOMEWORK_VERDICTS:
-                verdict = HOMEWORK_VERDICTS[homework_status]
-                mes_verdict = (
-                    f'Изменился статус проверки работы "{homework_name}".'
-                    f'{verdict}'
-                )
-                logger.info(mes_verdict)
-                return mes_verdict
-            raise KeyError('[Статус] ошибка статуса (ключа) homework')
-    except KeyError:
-        raise KeyError('[Статус] ERROR: Ошибка ключа')
+    if len(homework) == 0:
+        message = f'[Статус] Проект не на проверке: {homework}'
+        logger.info(message)
+        return message
+    else:
+        homework_name = homework['homework_name']
+        homework_status = homework['status']
+        if homework_status in HOMEWORK_VERDICTS:
+            verdict = HOMEWORK_VERDICTS[homework_status]
+            mes_verdict = (
+                f'Изменился статус проверки работы "{homework_name}".'
+                f'{verdict}'
+            )
+            logger.info(mes_verdict)
+            return mes_verdict
+    raise KeyError('[Статус] ошибка статуса (ключа) homework')
 
 
 def check_tokens():
@@ -135,22 +124,8 @@ def check_tokens():
     Если отсутствует хотя бы одна переменная окружения — функция должна
     вернуть False, иначе — True.
     """
-    try:
-        tokens = {
-            'PRACTICUM_TOKEN': PRACTICUM_TOKEN,
-            'TELEGRAM_TOKEN': TELEGRAM_TOKEN,
-            'TELEGRAM_CHAT_ID': TELEGRAM_CHAT_ID,
-        }
-        for key, value in tokens.items():
-            if not value:
-                logger.critical(
-                    f'Отсутствует ключ/значение для токенов: {value} для {key}'
-                )
-                return False
+    if all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]):
         return True
-    except NameError:
-        message = 'Ошибка доступности токенов. Остановка программы'
-        logger.critical(message)
 
 
 def main():
@@ -162,7 +137,7 @@ def main():
     if not check_tokens():
         message = 'Отсутствуют токены чата (id чата, бота или Практикума)'
         logger.critical(message)
-        raise exceptions.NonTokenError(message)
+        raise NonTokenError(message)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time())
     status_non = None
@@ -176,7 +151,7 @@ def main():
                     status_non = parse_status(homeworks)
                     send_message(bot, f'Работа не на проверке: {homeworks}')
                 else:
-                    logger.debug('Без обновлений')
+                    logger.info('Без обновлений')
             else:
                 if homeworks[0]['status'] in HOMEWORK_VERDICTS:
                     if homeworks[0]['status'] != status_ok:
@@ -184,7 +159,7 @@ def main():
                         parse_status(homeworks[0])
                         send_message(bot, HOMEWORK_VERDICTS[status_ok])
                     else:
-                        logger.debug('Без обновлений')
+                        logger.info('Без обновлений')
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             logger.error(message)
