@@ -11,3 +11,8 @@ class NonTokenError(Exception):
 class RequestError(Exception):
     """Ошибка запроса."""
     pass
+
+
+class ClasError(Exception):
+    """Ошибка запроса."""
+    pass
