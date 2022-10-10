@@ -85,8 +85,6 @@ def check_response(response):
     (он может быть и пустым), доступный в ответе API по ключу 'homeworks'.
     """
     homeworks = response['homeworks']
-    if not response['homeworks']:
-        return []
     if homeworks not in response:
         raise KeyError('[Корректность] ошибка ключа')
     if not isinstance(homeworks, list):
