@@ -13,6 +13,6 @@ class RequestError(Exception):
     pass
 
 
-class ClasError(Exception):
+class TypeError(Exception):
     """Ошибка запроса."""
     pass

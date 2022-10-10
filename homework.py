@@ -8,7 +8,7 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-from exceptions import ClasError, NonTokenError, RequestError, SendMessageError
+from exceptions import TypeError, NonTokenError, RequestError, SendMessageError
 
 load_dotenv()
 
@@ -85,11 +85,13 @@ def check_response(response):
     (он может быть и пустым), доступный в ответе API по ключу 'homeworks'.
     """
     homeworks = response['homeworks']
-    if homeworks not in response:
-        raise KeyError('[Корректность] ошибка ключа')
+    if not isinstance(response, dict):
+        raise TypeError('словарь не поступил в функцию')
+    if 'homeworks' not in response:
+        raise KeyError('Ключ homeworks отсутствует')
     if not isinstance(homeworks, list):
-        return response['homeworks']
-    raise ClasError
+        raise TypeError('Объект homeworks не является списком')
+    return homeworks
 
 
 def parse_status(homework):
