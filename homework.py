@@ -1,5 +1,7 @@
 import logging
 import os
+import sys
+
 from http import HTTPStatus
 from json.decoder import JSONDecodeError
 from time import sleep, time
@@ -8,7 +10,7 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-from exceptions import TypeError, NonTokenError, RequestError, SendMessageError
+from exceptions import NotSendingError, RequestError, SendMessageError
 
 load_dotenv()
 
@@ -27,7 +29,6 @@ HOMEWORK_VERDICTS = {
 }
 
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.StreamHandler())
 
 
 def send_message(bot, message):
@@ -84,14 +85,13 @@ def check_response(response):
     то функция должна вернуть список домашних работ
     (он может быть и пустым), доступный в ответе API по ключу 'homeworks'.
     """
-    homeworks = response['homeworks']
     if not isinstance(response, dict):
         raise TypeError('словарь не поступил в функцию')
     if 'homeworks' not in response:
         raise KeyError('Ключ homeworks отсутствует')
-    if not isinstance(homeworks, list):
+    if not isinstance(response['homeworks'], list):
         raise TypeError('Объект homeworks не является списком')
-    return homeworks
+    return response['homeworks']
 
 
 def parse_status(homework):
@@ -126,8 +126,7 @@ def check_tokens():
     Если отсутствует хотя бы одна переменная окружения — функция должна
     вернуть False, иначе — True.
     """
-    if all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]):
-        return True
+    return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def main():
@@ -139,7 +138,7 @@ def main():
     if not check_tokens():
         message = 'Отсутствуют токены чата (id чата, бота или Практикума)'
         logger.critical(message)
-        raise NonTokenError(message)
+        sys.exit([1])
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time())
     status_non = None
@@ -162,10 +161,12 @@ def main():
                         send_message(bot, HOMEWORK_VERDICTS[status_ok])
                     else:
                         logger.info('Без обновлений')
+        except NotSendingError as error:
+            logger.error(error)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            logger.error(message)
             send_message(bot, message)
+            logger.error(error)
         finally:
             sleep(RETRY_TIME)
 
